@@ -1,8 +1,11 @@
-const OpenAI = require('openai');
+const { costOf } = require('./providers/catalog');
 
-const MODEL = 'gpt-5.4-nano';
-// USD per token for MODEL; keep these in sync when changing the model
-const PRICE = { input: 0.2 / 1e6, output: 1.25 / 1e6 };
+// each adapter: stream({ apiKey, model, system, text, signal, onDelta }) → usage[], test({ apiKey, model })
+const ADAPTERS = {
+  openai: require('./providers/openai'),
+  anthropic: require('./providers/anthropic'),
+  ollama: require('./providers/ollama'),
+};
 
 const systemPrompt = (instruction) =>
   [
@@ -53,50 +56,39 @@ function extractPartialText(raw) {
   return out;
 }
 
-async function streamFix(apiKey, instruction, text, { signal, onText }) {
-  const client = new OpenAI({ apiKey, timeout: 30000, maxRetries: 1 });
-
-  const stream = await client.chat.completions.create(
-    {
-      model: MODEL,
-      stream: true,
-      stream_options: { include_usage: true }, // token usage arrives in the last chunk
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt(instruction) },
-        { role: 'user', content: text },
-      ],
-    },
-    { signal },
-  );
-
+// config: { provider, model, apiKey }
+async function streamFix(config, instruction, text, { signal, onText }) {
+  const { provider, model, apiKey } = config;
   let raw = '';
-  let usage = null;
   let lastText = '';
 
-  for await (const chunk of stream) {
-    raw += chunk.choices[0]?.delta?.content || '';
-    if (chunk.usage) usage = chunk.usage;
-
-    const partial = extractPartialText(raw);
-    if (partial !== null && partial !== lastText) {
-      lastText = partial;
-      onText(partial);
-    }
-  }
+  const usage = await ADAPTERS[provider].stream({
+    apiKey,
+    model,
+    system: systemPrompt(instruction),
+    text,
+    signal,
+    onDelta: (delta) => {
+      raw += delta;
+      const partial = extractPartialText(raw);
+      if (partial !== null && partial !== lastText) {
+        lastText = partial;
+        onText(partial);
+      }
+    },
+  });
 
   const out = JSON.parse(raw);
   return {
     text: String(out.text || '').trim(),
     why: Array.isArray(out.why) ? out.why : [],
     usage,
+    cost: costOf(provider, usage),
   };
 }
 
-// free call, used to verify a key before saving
-async function testKey(apiKey) {
-  const client = new OpenAI({ apiKey, timeout: 15000, maxRetries: 0 });
-  await client.models.retrieve(MODEL);
-}
+// cheap call that checks the key (or, for Ollama, that the model is installed)
+const testConnection = ({ provider, model, apiKey }) =>
+  ADAPTERS[provider].test({ apiKey, model });
 
-module.exports = { streamFix, testKey, extractPartialText, PRICE };
+module.exports = { streamFix, testConnection, extractPartialText };
