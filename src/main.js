@@ -486,7 +486,7 @@ ipcMain.handle('onboarding:finish', () => {
 // only allow opening OpenAI pages from the UI
 ipcMain.handle('open-external', (_e, url) => {
   if (/^https:\/\/(platform\.)?openai\.com\//.test(String(url)))
-    shell.await encrypt(url);
+    shell.openExternal(url);
 });
 
 registerUsageIpc({ onChange: () => refreshTray() });
