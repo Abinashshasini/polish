@@ -1,4 +1,5 @@
-const isMac = window.polish.platform === 'darwin';
+// read lazily (and overridable) so this file can be imported outside Electron, e.g. in tests
+const currentPlatform = () => globalThis.window?.polish?.platform;
 
 const CODE_MAP = {
   Space: 'Space',
@@ -30,7 +31,8 @@ function keyFromCode(code) {
 }
 
 // KeyboardEvent → Electron accelerator, e.g. "Alt+Shift+G"
-export function toAccelerator(e) {
+export function toAccelerator(e, platform = currentPlatform()) {
+  const isMac = platform === 'darwin';
   if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return null; // still holding modifiers
   const key = keyFromCode(e.code);
   if (!key) return null;
@@ -51,7 +53,8 @@ export function toAccelerator(e) {
 const MAC_SYMBOLS = { Command: '⌘', Control: '⌃', Alt: '⌥', Shift: '⇧' };
 
 // "Alt+Shift+G" → "⌥⇧G" on Mac, "Alt + Shift + G" on Windows
-export function formatAccelerator(accel) {
+export function formatAccelerator(accel, platform = currentPlatform()) {
+  const isMac = platform === 'darwin';
   if (!accel) return '';
   const parts = accel.split('+');
   if (isMac) return parts.map((p) => MAC_SYMBOLS[p] || p).join('');

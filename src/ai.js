@@ -99,4 +99,4 @@ async function testKey(apiKey) {
   await client.models.retrieve(MODEL);
 }
 
-module.exports = { streamFix, testKey, PRICE };
+module.exports = { streamFix, testKey, extractPartialText, PRICE };
