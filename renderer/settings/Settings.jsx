@@ -7,16 +7,34 @@ import UsageSection from './UsageSection';
 import HistorySection from './HistorySection';
 import './Settings.css';
 
-const TABS = ['General', 'Actions', 'Usage & History'];
+const TABS = ['API Key', 'General', 'Actions', 'Usage & History'];
 
 export default function Settings() {
-  const [tab, setTab] = useState('General');
-  const [state, setState] = useState(null); // { actions, apiKeyHint, launchAtLogin, canLaunchAtLogin }
+  const [tab, setTab] = useState(null);
+  const [state, setState] = useState(null); // { actions, apiKeyHint, launchAtLogin, canLaunchAtLogin, loginItemStatus }
   const [usageData, setUsageData] = useState(null); // { usage, history, historyEnabled }
   const [editing, setEditing] = useState(null); // action id | 'new' | null
 
   useEffect(() => {
-    window.polish.getSettings().then(setState);
+    window.polish.getSettings().then((s) => {
+      setState(s);
+      setTab(s.apiKeyHint ? 'General' : 'API Key'); // no key yet → start where it's needed
+    });
+
+    // the tray can change launch-at-login while this window is open
+    const refresh = () =>
+      window.polish
+        .getSettings()
+        .then(({ launchAtLogin, canLaunchAtLogin, loginItemStatus }) =>
+          setState((s) => ({
+            ...s,
+            launchAtLogin,
+            canLaunchAtLogin,
+            loginItemStatus,
+          })),
+        );
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
   }, []);
 
   // refresh usage + history every time the tab is opened
@@ -87,21 +105,32 @@ export default function Settings() {
         ))}
       </div>
 
+      {tab === 'API Key' && (
+        <ApiKeySection
+          hint={state.apiKeyHint}
+          onSaved={(hint) => setState((s) => ({ ...s, apiKeyHint: hint }))}
+        />
+      )}
+
       {tab === 'General' && (
-        <>
-          <ApiKeySection
-            hint={state.apiKeyHint}
-            onSaved={(hint) => setState((s) => ({ ...s, apiKeyHint: hint }))}
-          />
-          <GeneralSection
-            launchAtLogin={state.launchAtLogin}
-            canLaunchAtLogin={state.canLaunchAtLogin}
-            onChange={async (on) => {
-              const res = await window.polish.setLaunchAtLogin(on);
-              setState((s) => ({ ...s, launchAtLogin: res.launchAtLogin }));
-            }}
-          />
-        </>
+        <GeneralSection
+          actions={state.actions}
+          onOpenTab={setTab}
+          launchAtLogin={state.launchAtLogin}
+          canLaunchAtLogin={state.canLaunchAtLogin}
+          status={state.loginItemStatus}
+          onChange={async (on) => {
+            setState((s) => ({ ...s, launchAtLogin: on })); // update the UI right away
+            const { launchAtLogin, canLaunchAtLogin, loginItemStatus } =
+              await window.polish.setLaunchAtLogin(on);
+            setState((s) => ({
+              ...s,
+              launchAtLogin,
+              canLaunchAtLogin,
+              loginItemStatus,
+            }));
+          }}
+        />
       )}
 
       {tab === 'Actions' && (

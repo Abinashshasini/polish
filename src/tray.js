@@ -27,8 +27,11 @@ function refreshTray() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: paused ? 'Polish: paused' : 'Polish: running', enabled: false },
+      { label: usageLabel, enabled: false },
       { type: 'separator' },
       { label: 'Settings…', click: opts.onSettings },
+      { label: 'Setup guide…', click: opts.onOnboarding },
+      { type: 'separator' },
       {
         label: 'Pause hotkeys',
         type: 'checkbox',
@@ -41,14 +44,10 @@ function refreshTray() {
           : 'Launch at login (after install)',
         type: 'checkbox',
         checked: launchAtLogin,
-        enabled: canLaunchAtLogin,
         click: (item) => opts.onToggleLaunchAtLogin(item.checked),
       },
       { type: 'separator' },
       { label: 'Quit Polish', click: opts.onQuit },
-      { label: paused ? 'Polish: paused' : 'Polish: running', enabled: false },
-      { label: usageLabel, enabled: false },
-      { label: 'Setup guide…', click: opts.onOnboarding },
     ]),
   );
 }

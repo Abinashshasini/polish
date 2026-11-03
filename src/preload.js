@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('polish', {
   pauseHotkeys: () => ipcRenderer.invoke('hotkeys:pause'),
   resumeHotkeys: () => ipcRenderer.invoke('hotkeys:resume'),
   setLaunchAtLogin: (on) => ipcRenderer.invoke('settings:setLaunchAtLogin', on),
+  openLoginItems: () => ipcRenderer.invoke('settings:openLoginItems'),
+  quit: () => ipcRenderer.invoke('app:quit'),
   getUsage: () => ipcRenderer.invoke('usage:get'),
   setBudget: (amount) => ipcRenderer.invoke('usage:setBudget', amount),
   resetUsage: () => ipcRenderer.invoke('usage:reset'),

@@ -1,6 +1,8 @@
 const OpenAI = require('openai');
 
 const MODEL = 'gpt-5.4-nano';
+// USD per token for MODEL; keep these in sync when changing the model
+const PRICE = { input: 0.2 / 1e6, output: 1.25 / 1e6 };
 
 const systemPrompt = (instruction) =>
   [
@@ -97,4 +99,4 @@ async function testKey(apiKey) {
   await client.models.retrieve(MODEL);
 }
 
-module.exports = { streamFix, testKey };
+module.exports = { streamFix, testKey, PRICE };

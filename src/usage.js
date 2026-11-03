@@ -1,8 +1,7 @@
 const { ipcMain, clipboard } = require('electron');
 const { store } = require('./settings');
+const { PRICE } = require('./ai');
 
-// gpt-5.4-nano pricing in USD per token. Update this if you change the model.
-const PRICE = { input: 0.2 / 1e6, output: 1.25 / 1e6 };
 const HISTORY_LIMIT = 50;
 const EMPTY_USAGE = {
   inputTokens: 0,

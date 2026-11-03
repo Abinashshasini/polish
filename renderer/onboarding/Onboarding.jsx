@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ApiKeySection from '../settings/ApiKeySection';
-import { formatAccelerator } from '../../src/hotkeys';
+import { formatAccelerator } from '../hotkeys';
 import '../settings/Settings.css';
 import './Onboarding.css';
 

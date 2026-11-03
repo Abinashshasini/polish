@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { toAccelerator, formatAccelerator } from '../../src/hotkeys';
+import { toAccelerator, formatAccelerator } from '../hotkeys';
 
 export default function HotkeyRecorder({ value, onChange }) {
   const [recording, setRecording] = useState(false);

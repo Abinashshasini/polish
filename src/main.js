@@ -1,4 +1,3 @@
-require('dotenv').config();
 const path = require('path');
 const {
   app,
@@ -25,6 +24,15 @@ const {
   keyHint,
 } = require('./settings');
 
+// dev only: pick up OPENAI_API_KEY from .env (built into Node, no dotenv needed)
+if (!app.isPackaged) {
+  try {
+    process.loadEnvFile();
+  } catch {
+    /* no .env file */
+  }
+}
+
 // only one copy of the app at a time
 if (!app.requestSingleInstanceLock()) app.exit(0);
 
@@ -48,13 +56,44 @@ const isAlive = (win) => win && !win.isDestroyed();
 
 // ---------- launch at login ----------
 
+// The user's choice lives in the store, so the toggle works in dev too.
+// It's only handed to the OS when packaged (in dev it would register the bare Electron binary).
 const canLaunchAtLogin = () => app.isPackaged;
-const getLaunchAtLogin = () => app.getLoginItemSettings().openAtLogin;
+const getLaunchAtLogin = () =>
+  store.get(
+    'launchAtLogin',
+    canLaunchAtLogin() && app.getLoginItemSettings().openAtLogin,
+  );
+
+// macOS 13+ may need the user to approve the login item in System Settings
+function getLoginItemStatus() {
+  if (!canLaunchAtLogin()) return 'dev';
+  const { openAtLogin, status } = app.getLoginItemSettings();
+  if (status === 'requires-approval') return 'requires-approval';
+  if (getLaunchAtLogin() && !openAtLogin) return 'failed';
+  return 'ok';
+}
+
+function applyLaunchAtLogin() {
+  if (!canLaunchAtLogin()) return;
+  try {
+    app.setLoginItemSettings({ openAtLogin: getLaunchAtLogin() });
+  } catch (err) {
+    console.error('Launch at login failed:', err.message);
+  }
+}
 
 function setLaunchAtLogin(on) {
-  if (canLaunchAtLogin()) app.setLoginItemSettings({ openAtLogin: !!on });
+  store.set('launchAtLogin', !!on);
+  applyLaunchAtLogin();
   refreshTray();
 }
+
+const launchAtLoginState = () => ({
+  launchAtLogin: getLaunchAtLogin(),
+  canLaunchAtLogin: canLaunchAtLogin(),
+  loginItemStatus: getLoginItemStatus(),
+});
 
 // ---------- windows ----------
 
@@ -96,7 +135,10 @@ function openSettings() {
     webPreferences: { preload: PRELOAD },
   });
   loadRenderer(settingsWin, 'settings');
-  if (isDev) settingsWin.webContents.openDevTools({ mode: 'detach' });
+  // no menu bar in a menu-bar-only app, so wire Cmd+Q up by hand
+  settingsWin.webContents.on('before-input-event', (_e, input) => {
+    if (isMac && input.meta && input.key.toLowerCase() === 'q') app.quit();
+  });
   if (isMac) app.focus({ steal: true });
   settingsWin.on('closed', () => {
     settingsWin = null;
@@ -286,13 +328,22 @@ ipcMain.handle('open-settings', () => {
 ipcMain.handle('settings:get', async () => ({
   actions: store.get('actions'),
   apiKeyHint: keyHint(await getApiKey()),
-  launchAtLogin: getLaunchAtLogin(),
-  canLaunchAtLogin: canLaunchAtLogin(),
+  ...launchAtLoginState(),
 }));
 
 ipcMain.handle('settings:setLaunchAtLogin', (_e, on) => {
   setLaunchAtLogin(on);
-  return { ok: true, launchAtLogin: getLaunchAtLogin() };
+  return { ok: true, ...launchAtLoginState() };
+});
+
+// the tray icon can be hidden (e.g. behind the MacBook notch), so Settings needs its own way out
+ipcMain.handle('app:quit', () => app.quit());
+
+ipcMain.handle('settings:openLoginItems', () => {
+  if (isMac)
+    shell.openExternal(
+      'x-apple.systempreferences:com.apple.LoginItems-Settings.extension',
+    );
 });
 
 ipcMain.handle('settings:setApiKey', async (_e, rawKey) => {
@@ -459,6 +510,7 @@ app.whenReady().then(async () => {
     onQuit: () => app.quit(),
   });
   registerHotkeys();
+  applyLaunchAtLogin(); // keep the OS in sync with the saved choice
 
   if (!store.get('onboarded'))
     openOnboarding(); // first run

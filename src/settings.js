@@ -51,7 +51,7 @@ const store = new Store({
     usage: { inputTokens: 0, outputTokens: 0, fixes: 0, spent: 0, since: null },
     history: [],
     historyEnabled: true,
-    onboarded: true,
+    onboarded: false,
   },
 });
 
