@@ -113,6 +113,12 @@
     line-height: 1.45;
 }
 
+.row-divider {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+
 .row-note {
     font-size: 12px;
     color: var(--muted);

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { formatAccelerator } from '../hotkeys';
 
 const isMac = window.polish.platform === 'darwin';
@@ -12,6 +13,11 @@ export default function GeneralSection({
   onOpenTab,
 }) {
   const withHotkeys = actions.filter((a) => a.enabled && a.hotkey);
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    window.polish.getVersion().then(setVersion);
+  }, []);
 
   const steps = [
     {
@@ -128,18 +134,27 @@ export default function GeneralSection({
       </section>
 
       <section>
-        <h2>Quit</h2>
-        <div className="card card-row">
-          <div>
-            <div className="row-title">Quit Polish</div>
-            <div className="row-sub">
-              Hotkeys stop until you open Polish again from{' '}
-              {isMac ? 'Applications or Spotlight' : 'the Start menu'}.
-            </div>
+        <h2>About</h2>
+        <div className="card">
+          <div className="card-row">
+            <div className="row-title">Version</div>
+            <span className="muted">{version ? `v${version}` : '…'}</span>
           </div>
-          <button className="btn nowrap" onClick={() => window.polish.quit()}>
-            Quit
-          </button>
+          <div className="card-row row-divider">
+            <div>
+              <div className="row-title">Quit Polish</div>
+              <div className="row-sub">
+                Hotkeys stop until you open Polish again from{' '}
+                {isMac ? 'Applications or Spotlight' : 'the Start menu'}.
+              </div>
+            </div>
+            <button
+              className="btn nowrap"
+              onClick={() => window.polish.quit()}
+            >
+              Quit
+            </button>
+          </div>
         </div>
       </section>
     </>

@@ -1,7 +1,7 @@
 {
   "name": "polish",
   "productName": "Polish",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Fix spelling, grammar and tone anywhere with a hotkey",
   "author": "Abinash",
   "main": "src/main.js",

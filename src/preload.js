@@ -56,4 +56,5 @@ contextBridge.exposeInMainWorld('polish', {
     ipcRenderer.on('onboarding:fixed', handler);
     return () => ipcRenderer.removeListener('onboarding:fixed', handler);
   },
+  getVersion: () => ipcRenderer.invoke('app:getVersion'),
 });
