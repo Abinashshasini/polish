@@ -2,7 +2,9 @@ import { useState } from 'react';
 
 const NO_STATUS = { type: '', msg: '' };
 
-export default function ApiKeySection({ hint, onSaved }) {
+// provider: one entry of ai.providers (id, label, keyHint, keyPlaceholder, keyUrl)
+export default function ApiKeySection({ provider, onSaved }) {
+  const { id, label, keyHint: hint, keyPlaceholder, keyUrl } = provider;
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(''); // '' | 'saving' | 'removing'
   const [saveStatus, setSaveStatus] = useState(NO_STATUS);
@@ -15,10 +17,10 @@ export default function ApiKeySection({ hint, onSaved }) {
     setSaveStatus(NO_STATUS);
     setRemoveStatus(NO_STATUS);
     try {
-      const res = await window.polish.setApiKey(key);
+      const res = await window.polish.setApiKey(id, key);
       if (res.ok) {
         setValue('');
-        onSaved(res.hint);
+        onSaved(res.ai);
         setSaveStatus({ type: 'ok', msg: 'Key verified and saved ✓' });
       } else {
         setSaveStatus({ type: 'err', msg: res.error });
@@ -31,14 +33,18 @@ export default function ApiKeySection({ hint, onSaved }) {
   };
 
   const remove = async () => {
-    if (!confirm('Remove the saved API key? Polish will stop working until you add one again.'))
+    if (
+      !confirm(
+        `Remove the saved ${label} key? Polish can't use ${label} until you add one again.`,
+      )
+    )
       return;
     setBusy('removing');
     setSaveStatus(NO_STATUS);
     setRemoveStatus(NO_STATUS);
     try {
-      const res = await window.polish.setApiKey('');
-      onSaved(res.hint);
+      const res = await window.polish.setApiKey(id, '');
+      onSaved(res.ai);
       setRemoveStatus({ type: 'ok', msg: 'Key removed' });
     } catch (e) {
       setRemoveStatus({ type: 'err', msg: e.message });
@@ -50,7 +56,7 @@ export default function ApiKeySection({ hint, onSaved }) {
   return (
     <>
       <section>
-        <h2>Saved key</h2>
+        <h2>Saved {label} key</h2>
         <p className="sub">Stored encrypted on this device only.</p>
         {hint ? (
           <div className="key-row saved-key">
@@ -70,12 +76,20 @@ export default function ApiKeySection({ hint, onSaved }) {
       <section>
         <h2>{hint ? 'Replace key' : 'Add key'}</h2>
         <p className="sub">
-          Paste an OpenAI API key. It's checked with OpenAI before saving.
+          Paste your {label} API key. It's checked with {label} before saving.{' '}
+          {keyUrl && (
+            <button
+              className="link"
+              onClick={() => window.polish.openExternal(keyUrl)}
+            >
+              Get a key →
+            </button>
+          )}
         </p>
         <div className="key-row">
           <input
             type="password"
-            placeholder="sk-..."
+            placeholder={keyPlaceholder}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !busy && save()}

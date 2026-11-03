@@ -10,7 +10,9 @@ const {
   shell,
 } = require('electron');
 const { diffWords } = require('diff');
-const { streamFix, testKey } = require('./ai');
+const { streamFix, testConnection } = require('./ai');
+const { PROVIDERS } = require('./providers/catalog');
+const { listModels: listOllamaModels } = require('./providers/ollama');
 const { friendlyError } = require('./errors');
 const { paste, sleep } = require('./keys');
 const { createTray, refreshTray } = require('./tray');
@@ -18,6 +20,8 @@ const { recordFix, usageLabel, registerUsageIpc } = require('./usage');
 const {
   store,
   DEFAULT_ACTIONS,
+  getProvider,
+  getModel,
   setApiKey,
   clearApiKey,
   getApiKey,
@@ -227,6 +231,40 @@ function saveActions(actions) {
   return { ok: true, actions };
 }
 
+// ---------- AI provider ----------
+
+async function activeConfig(provider = getProvider()) {
+  return { provider, model: getModel(provider), apiKey: await getApiKey(provider) };
+}
+
+// can the selected provider run a fix right now (as far as settings go)?
+async function isReady() {
+  const { provider, model, apiKey } = await activeConfig();
+  return PROVIDERS[provider].needsKey ? !!apiKey : !!model;
+}
+
+// everything the AI Provider tab needs; never includes the keys themselves
+async function providerState() {
+  const providers = await Promise.all(
+    Object.entries(PROVIDERS).map(async ([id, p]) => ({
+      id,
+      label: p.label,
+      needsKey: p.needsKey,
+      keyPlaceholder: p.keyPlaceholder || '',
+      keyUrl: p.keyUrl || '',
+      keyHint: p.needsKey ? keyHint(await getApiKey(id)) : '',
+      model: getModel(id),
+      models: p.models.map(({ id: m, label, note, price }) => ({
+        id: m,
+        label,
+        note,
+        price,
+      })),
+    })),
+  );
+  return { provider: getProvider(), providers, ready: await isReady() };
+}
+
 // ---------- fix (streaming) ----------
 
 const MAX_CHARS = 4000;
@@ -249,6 +287,7 @@ ipcMain.on('fix:start', async (e, { requestId, actionId, text }) => {
       e.sender.send(channel, { requestId, ...payload });
   };
 
+  const config = await activeConfig();
   try {
     const action = store.get('actions').find((a) => a.id === actionId);
     if (!action) throw new Error('Action not found');
@@ -258,19 +297,24 @@ ipcMain.on('fix:start', async (e, { requestId, actionId, text }) => {
       );
     }
 
-    const apiKey = await getApiKey();
-    if (!apiKey) throw new Error('Add your OpenAI API key in Settings first.');
+    const { label, needsKey } = PROVIDERS[config.provider];
+    if (needsKey && !config.apiKey)
+      throw new Error(`Add your ${label} API key in Settings first.`);
+    if (!config.model)
+      throw new Error(`Pick a ${label} model in Settings first.`);
 
-    const out = await streamFix(apiKey, action.prompt, text, {
+    const out = await streamFix(config, action.prompt, text, {
       signal: controller.signal,
       onText: (partial) => send('fix:chunk', { text: partial }),
     });
 
     recordFix({
       actionLabel: action.label,
+      model: config.model,
       input: text,
       output: out.text,
       usage: out.usage,
+      cost: out.cost,
     });
 
     const parts = diffWords(text, out.text).map((p) => ({
@@ -286,7 +330,7 @@ ipcMain.on('fix:start', async (e, { requestId, actionId, text }) => {
   } catch (err) {
     if (controller.signal.aborted) return;
     console.error('Fix failed:', err);
-    send('fix:error', { message: friendlyError(err) });
+    send('fix:error', { message: friendlyError(err, config.provider) });
   } finally {
     if (current?.id === requestId) current = null;
   }
@@ -329,7 +373,7 @@ ipcMain.handle('open-settings', () => {
 
 ipcMain.handle('settings:get', async () => ({
   actions: store.get('actions'),
-  apiKeyHint: keyHint(await getApiKey()),
+  ai: await providerState(),
   ...launchAtLoginState(),
 }));
 
@@ -348,27 +392,70 @@ ipcMain.handle('settings:openLoginItems', () => {
     );
 });
 
-ipcMain.handle('settings:setApiKey', async (_e, rawKey) => {
+ipcMain.handle('settings:setApiKey', async (_e, provider, rawKey) => {
+  if (!PROVIDERS[provider]?.needsKey)
+    return { ok: false, error: 'This provider has no API key' };
   const key = String(rawKey || '').trim();
 
   if (!key) {
-    clearApiKey();
-    return { ok: true, hint: keyHint(await getApiKey()) };
+    clearApiKey(provider);
+    return { ok: true, ai: await providerState() };
   }
 
   try {
-    await withTimeout(testKey(key), 15000, 'Key check');
+    await withTimeout(
+      testConnection({ provider, model: getModel(provider), apiKey: key }),
+      15000,
+      'Key check',
+    );
   } catch (err) {
-    return { ok: false, error: friendlyError(err) };
+    return { ok: false, error: friendlyError(err, provider) };
   }
 
   try {
-    await withTimeout(setApiKey(key), 15000, 'Saving to Keychain');
+    await withTimeout(setApiKey(provider, key), 15000, 'Saving to Keychain');
   } catch (err) {
     return { ok: false, error: err.message };
   }
 
-  return { ok: true, hint: keyHint(key) };
+  return { ok: true, ai: await providerState() };
+});
+
+ipcMain.handle('provider:select', async (_e, provider) => {
+  if (!PROVIDERS[provider]) return { ok: false, error: 'Unknown provider' };
+  store.set('provider', provider);
+  refreshTray();
+  return { ok: true, ai: await providerState() };
+});
+
+ipcMain.handle('provider:setModel', async (_e, provider, model) => {
+  const p = PROVIDERS[provider];
+  const id = String(model || '');
+  // Ollama models are whatever the user pulled; the others come from the catalog
+  if (!p || (p.models.length && !p.models.some((m) => m.id === id)))
+    return { ok: false, error: 'Unknown model' };
+  store.set(`models.${provider}`, id);
+  return { ok: true, ai: await providerState() };
+});
+
+ipcMain.handle('provider:test', async (_e, provider) => {
+  const config = await activeConfig(provider);
+  if (PROVIDERS[provider].needsKey && !config.apiKey)
+    return { ok: false, error: 'Add an API key first.' };
+  try {
+    await withTimeout(testConnection(config), 15000, 'Connection check');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: friendlyError(err, provider) };
+  }
+});
+
+ipcMain.handle('provider:ollamaModels', async () => {
+  try {
+    return { ok: true, models: await listOllamaModels() };
+  } catch (err) {
+    return { ok: false, error: friendlyError(err, 'ollama') };
+  }
 });
 
 ipcMain.handle('settings:saveAction', (_e, input) => {
@@ -450,7 +537,7 @@ ipcMain.handle('onboarding:getInfo', async () => {
   return {
     platform: process.platform,
     isDev,
-    apiKeyHint: keyHint(await getApiKey()),
+    ai: await providerState(),
     hotkey: pick?.hotkey || '',
   };
 });
@@ -483,10 +570,11 @@ ipcMain.handle('onboarding:finish', () => {
   if (isAlive(onboardingWin)) onboardingWin.close();
 });
 
-// only allow opening OpenAI pages from the UI
+// only allow opening the providers' own pages from the UI
+const EXTERNAL_ALLOWED =
+  /^https:\/\/((platform\.)?openai\.com|platform\.claude\.com|console\.anthropic\.com|(www\.)?ollama\.com)\//;
 ipcMain.handle('open-external', (_e, url) => {
-  if (/^https:\/\/(platform\.)?openai\.com\//.test(String(url)))
-    shell.openExternal(url);
+  if (EXTERNAL_ALLOWED.test(String(url))) shell.openExternal(url);
 });
 
 registerUsageIpc({ onChange: () => refreshTray() });
@@ -503,7 +591,8 @@ app.whenReady().then(async () => {
       paused,
       launchAtLogin: getLaunchAtLogin(),
       canLaunchAtLogin: canLaunchAtLogin(),
-      usageLabel: usageLabel(),
+      usageLabel:
+        getProvider() === 'ollama' ? 'Local model · no cost' : usageLabel(),
     }),
     onSettings: openSettings,
     onOnboarding: openOnboarding,
@@ -516,7 +605,7 @@ app.whenReady().then(async () => {
 
   if (!store.get('onboarded'))
     openOnboarding(); // first run
-  else if (!(await getApiKey())) openSettings(); // key was removed later
+  else if (!(await isReady())) openSettings(); // key removed or provider not set up
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());

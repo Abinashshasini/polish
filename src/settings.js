@@ -1,5 +1,6 @@
 const Store = require('electron-store');
 const { safeStorage } = require('electron');
+const { PROVIDERS } = require('./providers/catalog');
 
 const DEFAULT_ACTIONS = [
   {
@@ -46,7 +47,9 @@ const DEFAULT_ACTIONS = [
 const store = new Store({
   defaults: {
     actions: DEFAULT_ACTIONS,
-    apiKeyEnc: '',
+    provider: 'openai',
+    apiKeysEnc: {}, // { [provider]: base64 of the keychain-encrypted key }
+    models: {}, // { [provider]: model id }, empty = provider default
     budget: 5,
     usage: { inputTokens: 0, outputTokens: 0, fixes: 0, spent: 0, since: null },
     history: [],
@@ -65,7 +68,24 @@ if (store.has('hotkeys')) {
   store.delete('hotkeys');
 }
 
-// ---------- API key (encrypted with OS keychain) ----------
+// migrate the single OpenAI key from before providers existed
+if (store.has('apiKeyEnc')) {
+  const old = store.get('apiKeyEnc');
+  if (old) store.set('apiKeysEnc.openai', old);
+  store.delete('apiKeyEnc');
+}
+
+// ---------- provider + model ----------
+
+const getProvider = () => {
+  const id = store.get('provider');
+  return PROVIDERS[id] ? id : 'openai';
+};
+
+const getModel = (provider) =>
+  store.get(`models.${provider}`) || PROVIDERS[provider].defaultModel;
+
+// ---------- API keys (encrypted with OS keychain) ----------
 // Newer Electron has async safeStorage APIs; older versions only have the sync ones.
 
 async function isEncryptionAvailable() {
@@ -90,20 +110,25 @@ async function decrypt(buffer) {
   return safeStorage.decryptString(buffer);
 }
 
-async function setApiKey(key) {
+async function setApiKey(provider, key) {
   if (!(await isEncryptionAvailable())) {
     throw new Error('Secure storage is not available on this system');
   }
   const encrypted = await encrypt(key);
-  store.set('apiKeyEnc', Buffer.from(encrypted).toString('base64'));
+  store.set(
+    `apiKeysEnc.${provider}`,
+    Buffer.from(encrypted).toString('base64'),
+  );
 }
 
-function clearApiKey() {
-  store.set('apiKeyEnc', '');
+function clearApiKey(provider) {
+  store.delete(`apiKeysEnc.${provider}`);
 }
 
-async function getApiKey() {
-  const enc = store.get('apiKeyEnc');
+const ENV_KEYS = { openai: 'OPENAI_API_KEY', anthropic: 'ANTHROPIC_API_KEY' };
+
+async function getApiKey(provider) {
+  const enc = store.get(`apiKeysEnc.${provider}`);
   if (enc) {
     try {
       const key = await decrypt(Buffer.from(enc, 'base64'));
@@ -112,7 +137,7 @@ async function getApiKey() {
       /* fall through */
     }
   }
-  return process.env.OPENAI_API_KEY || ''; // dev fallback
+  return process.env[ENV_KEYS[provider]] || ''; // dev fallback
 }
 
 const keyHint = (key) =>
@@ -121,6 +146,8 @@ const keyHint = (key) =>
 module.exports = {
   store,
   DEFAULT_ACTIONS,
+  getProvider,
+  getModel,
   setApiKey,
   clearApiKey,
   getApiKey,

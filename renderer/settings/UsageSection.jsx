@@ -66,8 +66,9 @@ export default function UsageSection({ usage, onUpdate }) {
       {error && <div className="err">{error}</div>}
 
       <p className="sub">
-        Tracked from this app only, using gpt-5.4-nano prices. Your real balance
-        is at platform.openai.com.
+        Tracked from this app only, using each model's list price. Local Ollama
+        models cost nothing. Your real balance is on your provider's billing
+        page.
       </p>
     </section>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import ApiKeySection from './ApiKeySection';
+import ProviderSection from './ProviderSection';
 import GeneralSection from './GeneralSection';
 import ActionRow from './ActionRow';
 import ActionEditor from './ActionEditor';
@@ -7,18 +7,18 @@ import UsageSection from './UsageSection';
 import HistorySection from './HistorySection';
 import './Settings.css';
 
-const TABS = ['API Key', 'General', 'Actions', 'Usage & History'];
+const TABS = ['AI Provider', 'General', 'Actions', 'Usage & History'];
 
 export default function Settings() {
   const [tab, setTab] = useState(null);
-  const [state, setState] = useState(null); // { actions, apiKeyHint, launchAtLogin, canLaunchAtLogin, loginItemStatus }
+  const [state, setState] = useState(null); // { actions, ai, launchAtLogin, canLaunchAtLogin, loginItemStatus }
   const [usageData, setUsageData] = useState(null); // { usage, history, historyEnabled }
   const [editing, setEditing] = useState(null); // action id | 'new' | null
 
   useEffect(() => {
     window.polish.getSettings().then((s) => {
       setState(s);
-      setTab(s.apiKeyHint ? 'General' : 'API Key'); // no key yet → start where it's needed
+      setTab(s.ai.ready ? 'General' : 'AI Provider'); // not set up yet → start where it's needed
     });
 
     // the tray can change launch-at-login while this window is open
@@ -105,10 +105,10 @@ export default function Settings() {
         ))}
       </div>
 
-      {tab === 'API Key' && (
-        <ApiKeySection
-          hint={state.apiKeyHint}
-          onSaved={(hint) => setState((s) => ({ ...s, apiKeyHint: hint }))}
+      {tab === 'AI Provider' && (
+        <ProviderSection
+          ai={state.ai}
+          onChange={(ai) => setState((s) => ({ ...s, ai }))}
         />
       )}
 

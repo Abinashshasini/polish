@@ -32,7 +32,13 @@ contextBridge.exposeInMainWorld('polish', {
   // settings
   openSettings: () => ipcRenderer.invoke('open-settings'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
-  setApiKey: (key) => ipcRenderer.invoke('settings:setApiKey', key),
+  setApiKey: (provider, key) =>
+    ipcRenderer.invoke('settings:setApiKey', provider, key),
+  selectProvider: (provider) => ipcRenderer.invoke('provider:select', provider),
+  setProviderModel: (provider, model) =>
+    ipcRenderer.invoke('provider:setModel', provider, model),
+  testProvider: (provider) => ipcRenderer.invoke('provider:test', provider),
+  listOllamaModels: () => ipcRenderer.invoke('provider:ollamaModels'),
   pauseHotkeys: () => ipcRenderer.invoke('hotkeys:pause'),
   resumeHotkeys: () => ipcRenderer.invoke('hotkeys:resume'),
   setLaunchAtLogin: (on) => ipcRenderer.invoke('settings:setLaunchAtLogin', on),

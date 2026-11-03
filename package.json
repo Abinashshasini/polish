@@ -13,7 +13,7 @@
     "dist:win": "npm run build:ui && electron-builder --win",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "for f in src/*.js; do node --check \"$f\" || exit 1; done"
+    "check": "for f in src/*.js src/*/*.js; do node --check \"$f\" || exit 1; done"
   },
   "build": {
     "appId": "com.abinash.polish",
@@ -58,6 +58,7 @@
     }
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.4.0",
     "diff": "^5.2.2",
     "electron-store": "^8.2.0",
     "openai": "^7.47.0"

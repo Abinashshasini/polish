@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import ApiKeySection from '../settings/ApiKeySection';
+import ProviderSection from '../settings/ProviderSection';
 import { formatAccelerator } from '../hotkeys';
 import '../settings/Settings.css';
 import './Onboarding.css';
@@ -68,30 +68,20 @@ export default function Onboarding() {
             hotkey, done.
           </p>
 
-          <ApiKeySection
-            hint={info.apiKeyHint}
-            onSaved={(hint) => setInfo((i) => ({ ...i, apiKeyHint: hint }))}
+          <ProviderSection
+            ai={info.ai}
+            onChange={(ai) => setInfo((i) => ({ ...i, ai }))}
           />
           <p className="sub">
-            Don't have a key?{' '}
-            <button
-              className="link"
-              onClick={() =>
-                window.polish.openExternal(
-                  'https://platform.openai.com/api-keys',
-                )
-              }
-            >
-              Get one from OpenAI →
-            </button>{' '}
-            About $5 of credit lasts a long time.
+            Cloud providers need an API key; about $5 of credit lasts a long
+            time. Ollama is free and keeps your text on this computer.
           </p>
 
           <div className="nav">
             <span />
             <button
               className="btn primary"
-              disabled={!info.apiKeyHint}
+              disabled={!info.ai.ready}
               onClick={() => setStep(1)}
             >
               Next →

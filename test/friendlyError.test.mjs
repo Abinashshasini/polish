@@ -78,6 +78,39 @@ describe('friendlyError', () => {
     expect(friendlyError(err)).toMatch(/unexpected reply/);
   });
 
+  it('names the provider in outage and connection messages', () => {
+    expect(friendlyError(apiError(529), 'anthropic')).toMatch(/Anthropic is having problems/);
+    expect(friendlyError(withCause('ENOTFOUND'), 'anthropic')).toMatch(/Can't reach Anthropic/);
+  });
+
+  it("recognises Anthropic's low-credit error (a 400, not a 429)", () => {
+    const err = Object.assign(
+      new Error('400 {"error":{"message":"Your credit balance is too low to access the Anthropic API."}}'),
+      { status: 400 },
+    );
+    expect(friendlyError(err, 'anthropic')).toMatch(/out of Anthropic credit.*platform\.claude\.com/);
+  });
+
+  it('explains a Claude refusal', () => {
+    const err = Object.assign(new Error('x'), { code: 'MODEL_REFUSED' });
+    expect(friendlyError(err, 'anthropic')).toMatch(/declined to edit/);
+  });
+
+  it('tells you to start Ollama when it is not running', () => {
+    expect(friendlyError(withCause('ECONNREFUSED'), 'ollama')).toMatch(/Ollama isn't running/);
+    expect(friendlyError(new TypeError('fetch failed'), 'ollama')).toMatch(/Ollama isn't running/);
+  });
+
+  it('tells you to pull a missing Ollama model', () => {
+    expect(friendlyError(apiError(404), 'ollama')).toMatch(/ollama pull/);
+    const missing = Object.assign(new Error('x'), { code: 'OLLAMA_MODEL_MISSING' });
+    expect(friendlyError(missing, 'ollama')).toMatch(/ollama pull/);
+  });
+
+  it('suggests a local model when corporate TLS interception blocks the cloud', () => {
+    expect(friendlyError(withCause('SELF_SIGNED_CERT_IN_CHAIN'), 'anthropic')).toMatch(/Ollama/);
+  });
+
   it('falls back to the original message, then to a generic one', () => {
     expect(friendlyError(new Error('Action not found'))).toBe('Action not found');
     expect(friendlyError(undefined)).toBe('Something went wrong. Please retry.');

@@ -1,6 +1,5 @@
 const { ipcMain, clipboard } = require('electron');
 const { store } = require('./settings');
-const { PRICE } = require('./ai');
 
 const HISTORY_LIMIT = 50;
 const EMPTY_USAGE = {
@@ -13,18 +12,14 @@ const EMPTY_USAGE = {
 
 let onChange = () => {};
 
-const costOf = (usage = {}) =>
-  (usage.prompt_tokens || 0) * PRICE.input +
-  (usage.completion_tokens || 0) * PRICE.output;
-
-// called after every successful fix
-function recordFix({ actionLabel, input, output, usage }) {
-  const cost = costOf(usage);
+// called after every successful fix; usage is [{ model, input, output }], cost in USD
+function recordFix({ actionLabel, model, input, output, usage = [], cost }) {
   const u = { ...EMPTY_USAGE, ...store.get('usage') };
+  const sum = (field) => usage.reduce((n, x) => n + (x[field] || 0), 0);
 
   store.set('usage', {
-    inputTokens: u.inputTokens + (usage?.prompt_tokens || 0),
-    outputTokens: u.outputTokens + (usage?.completion_tokens || 0),
+    inputTokens: u.inputTokens + sum('input'),
+    outputTokens: u.outputTokens + sum('output'),
     fixes: u.fixes + 1,
     spent: u.spent + cost,
     since: u.since || Date.now(),
@@ -35,6 +30,7 @@ function recordFix({ actionLabel, input, output, usage }) {
       id: `${Date.now()}`,
       ts: Date.now(),
       actionLabel,
+      model,
       input,
       output,
       cost,
