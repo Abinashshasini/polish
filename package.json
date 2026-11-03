@@ -12,7 +12,8 @@
     "dist:mac": "npm run build:ui && electron-builder --mac",
     "dist:win": "npm run build:ui && electron-builder --win",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check": "for f in src/*.js; do node --check \"$f\" || exit 1; done"
   },
   "build": {
     "appId": "com.abinash.polish",
@@ -29,8 +30,17 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "identity": "-",
+      "hardenedRuntime": false,
       "extendInfo": {
         "LSUIElement": true,
         "NSAppleEventsUsageDescription": "Polish uses System Events to paste the fixed text back into your apps."
@@ -39,7 +49,8 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -62,5 +73,9 @@
     "vite": "^8.3.5",
     "vitest": "^5.1.0",
     "wait-on": "^9.5.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Abinashshasini/polish.git"
   }
 }
