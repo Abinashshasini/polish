@@ -110,7 +110,7 @@ function createPopup() {
     show: false,
     frame: false,
     transparent: true,
-    resizable: false,
+    resizable: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     fullscreenable: false,
