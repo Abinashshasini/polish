@@ -14,26 +14,38 @@ export default function App() {
   const [showWhy, setShowWhy] = useState(false);
   const requestRef = useRef(null); // id of the request we're waiting for
 
-  // popup opened via hotkey
+  // takes text and action as arguments so it also works before state updates land
+  const startRequest = useCallback((text, action) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    requestRef.current = id;
+    setStreamText('');
+    setData(null);
+    setError('');
+    setStatus('streaming');
+    window.polish.startFix(id, action.id, text);
+  }, []);
+
+  // popup opened via hotkey: an action's hotkey runs it, the menu hotkey lets you pick
   useEffect(
     () =>
-      window.polish.onOpen(({ text, actionId, actions }) => {
+      window.polish.onOpen(({ text, actionId, actions, autoRun }) => {
         requestRef.current = null;
+        const index = Math.max(
+          0,
+          actions.findIndex((a) => a.id === actionId),
+        );
         setText(text);
         setActions(actions);
         setData(null);
         setError('');
         setStreamText('');
         setShowWhy(false);
-        setStatus('choose');
-        setActive(
-          Math.max(
-            0,
-            actions.findIndex((a) => a.id === actionId),
-          ),
-        );
+        setActive(index);
+        if (autoRun && text && actions[index]?.id === actionId)
+          startRequest(text, actions[index]);
+        else setStatus('choose');
       }),
-    [],
+    [startRequest],
   );
 
   // streaming events from main
@@ -59,16 +71,10 @@ export default function App() {
   const run = useCallback(
     (i) => {
       if (!text || !actions[i]) return;
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      requestRef.current = id;
       setActive(i);
-      setStreamText('');
-      setData(null);
-      setError('');
-      setStatus('streaming');
-      window.polish.startFix(id, actions[i].id, text);
+      startRequest(text, actions[i]);
     },
-    [text, actions],
+    [text, actions, startRequest],
   );
 
   const retry = useCallback(() => run(active), [run, active]);

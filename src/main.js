@@ -8,6 +8,7 @@ const {
   screen,
   Notification,
   shell,
+  dialog,
 } = require('electron');
 const { diffWords } = require('diff');
 const { streamFix, testConnection } = require('./ai');
@@ -170,7 +171,8 @@ function openOnboarding() {
   });
 }
 
-async function openPopup(actionId) {
+// actionId set: run that action right away. null: let the user pick one.
+async function openPopup(actionId = null) {
   const text = String((await clipboard.readText()) || '').trim();
 
   const { x, y } = screen.getCursorScreenPoint();
@@ -186,7 +188,7 @@ async function openPopup(actionId) {
     .filter((a) => a.enabled)
     .map(({ id, label }) => ({ id, label }));
 
-  popup.webContents.send('open', { text, actionId, actions });
+  popup.webContents.send('open', { text, actionId, actions, autoRun: !!actionId });
   if (isMac) app.focus({ steal: true });
   popup.show();
   popup.focus();
@@ -203,9 +205,21 @@ function hidePopup() {
 
 // ---------- hotkeys ----------
 
-function registerHotkeys(actions = store.get('actions')) {
+// returns the ids that couldn't be registered ('menu' for the menu hotkey)
+function registerHotkeys(
+  actions = store.get('actions'),
+  menuHotkey = store.get('menuHotkey'),
+) {
   globalShortcut.unregisterAll();
   const failed = [];
+  if (menuHotkey) {
+    try {
+      if (!globalShortcut.register(menuHotkey, () => openPopup()))
+        failed.push('menu');
+    } catch {
+      failed.push('menu');
+    }
+  }
   for (const a of actions) {
     if (!a.enabled || !a.hotkey) continue;
     try {
@@ -373,6 +387,7 @@ ipcMain.handle('open-settings', () => {
 
 ipcMain.handle('settings:get', async () => ({
   actions: store.get('actions'),
+  menuHotkey: store.get('menuHotkey'),
   ai: await providerState(),
   ...launchAtLoginState(),
 }));
@@ -509,6 +524,8 @@ ipcMain.handle('settings:setHotkey', (_e, id, accel) => {
   if (accel) {
     const clash = current.find((a) => a.id !== id && a.hotkey === accel);
     if (clash) return { ok: false, error: `Already used by "${clash.label}"` };
+    if (accel === store.get('menuHotkey'))
+      return { ok: false, error: 'Already used by "Open menu"' };
   }
 
   const next = current.map((a) => (a.id === id ? { ...a, hotkey: accel } : a));
@@ -520,6 +537,20 @@ ipcMain.handle('settings:setHotkey', (_e, id, accel) => {
 
   store.set('actions', next);
   return { ok: true, actions: next };
+});
+
+ipcMain.handle('settings:setMenuHotkey', (_e, accel) => {
+  const actions = store.get('actions');
+  if (accel) {
+    const clash = actions.find((a) => a.hotkey === accel);
+    if (clash) return { ok: false, error: `Already used by "${clash.label}"` };
+  }
+  if (registerHotkeys(actions, accel).includes('menu')) {
+    registerHotkeys();
+    return { ok: false, error: 'Taken by another app or not allowed' };
+  }
+  store.set('menuHotkey', accel);
+  return { ok: true, menuHotkey: accel };
 });
 
 ipcMain.handle('hotkeys:pause', () => globalShortcut.unregisterAll());
@@ -581,9 +612,37 @@ registerUsageIpc({ onChange: () => refreshTray() });
 
 // ---------- lifecycle ----------
 
-app.on('second-instance', () => openSettings());
+// Opening a running app again shows its window: Finder sends 'activate' on macOS,
+// Windows starts a second instance.
+const showMainWindow = () =>
+  store.get('onboarded') ? openSettings() : openOnboarding();
+app.on('second-instance', showMainWindow);
+app.on('activate', showMainWindow);
+
+// Run straight from the dmg, macOS translocates the app to a random path, so Accessibility
+// and launch at login don't stick. Offer to move it; on success it relaunches from there.
+function offerMoveToApplications() {
+  if (!isMac || !app.isPackaged || app.isInApplicationsFolder()) return false;
+  const choice = dialog.showMessageBoxSync({
+    type: 'question',
+    buttons: ['Move to Applications', 'Not Now'],
+    defaultId: 0,
+    cancelId: 1,
+    message: 'Move Polish to your Applications folder?',
+    detail:
+      'Polish is running from the disk image. Move it to Applications so it keeps its permissions and can start at login.',
+  });
+  if (choice !== 0) return false;
+  try {
+    return app.moveToApplicationsFolder();
+  } catch (err) {
+    console.error('Move to Applications failed:', err.message);
+    return false;
+  }
+}
 
 app.whenReady().then(async () => {
+  if (offerMoveToApplications()) return; // the moved copy is starting up
   app.dock?.hide();
   createPopup();
   createTray({
@@ -603,9 +662,11 @@ app.whenReady().then(async () => {
   registerHotkeys();
   applyLaunchAtLogin(); // keep the OS in sync with the saved choice
 
+  // a menu-bar app has no other sign it started, so show a window unless macOS started it at login
+  const openedByUser = isMac && !app.getLoginItemSettings().wasOpenedAtLogin;
   if (!store.get('onboarded'))
     openOnboarding(); // first run
-  else if (!(await isReady())) openSettings(); // key removed or provider not set up
+  else if (openedByUser || !(await isReady())) openSettings(); // also when the key is gone or the provider isn't set up
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());

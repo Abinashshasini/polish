@@ -40,7 +40,7 @@ The builds aren't signed with a paid certificate yet, so your OS will warn you t
 ## How it works
 
 1. Select text anywhere (Slack, email, a browser, an editor) and copy it.
-2. Press a hotkey. A small window opens next to your cursor, and the fix streams in.
+2. Press an action's hotkey. A small window opens next to your cursor, and the fix streams in.
 3. Review what changed. Each edit is highlighted, with a one-line reason.
 4. Press **Enter** to replace your selection with the fixed text, or click **Copy** to paste it yourself.
 
@@ -52,13 +52,14 @@ Polish comes with five actions. You can rename them, change their hotkeys, edit 
 
 | Action | Default hotkey | What it does |
 | --- | --- | --- |
+| Open menu | `Alt+Shift+Space` (`⌥⇧Space`) | Opens the popup so you can pick any action. |
 | Fix spelling | `Alt+Shift+S` (`⌥⇧S`) | Spelling only. Grammar and wording stay as they are. |
 | Fix grammar | `Alt+Shift+G` (`⌥⇧G`) | Spelling and grammar, including tense. Keeps your meaning and tone. |
 | Casual 😊 | none | Friendly rewrite, like a Slack message to a teammate. |
 | Professional 💼 | none | Clear, polite rewrite, like a work email. |
 | Fun 🎉 | none | Playful rewrite with some personality. |
 
-Every action can also be picked from the popup, so one hotkey is enough to reach them all.
+An action's hotkey runs it right away. The menu hotkey opens the popup with every enabled action, so one hotkey is enough to reach them all.
 
 ## AI providers
 

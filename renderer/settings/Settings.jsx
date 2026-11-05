@@ -3,6 +3,7 @@ import ProviderSection from './ProviderSection';
 import GeneralSection from './GeneralSection';
 import ActionRow from './ActionRow';
 import ActionEditor from './ActionEditor';
+import HotkeyRecorder from './HotkeyRecorder';
 import UsageSection from './UsageSection';
 import HistorySection from './HistorySection';
 import './Settings.css';
@@ -11,7 +12,7 @@ const TABS = ['AI Provider', 'General', 'Actions', 'Usage & History'];
 
 export default function Settings() {
   const [tab, setTab] = useState(null);
-  const [state, setState] = useState(null); // { actions, ai, launchAtLogin, canLaunchAtLogin, loginItemStatus }
+  const [state, setState] = useState(null); // { actions, menuHotkey, ai, launchAtLogin, canLaunchAtLogin, loginItemStatus }
   const [usageData, setUsageData] = useState(null); // { usage, history, historyEnabled }
   const [editing, setEditing] = useState(null); // action id | 'new' | null
 
@@ -115,6 +116,7 @@ export default function Settings() {
       {tab === 'General' && (
         <GeneralSection
           actions={state.actions}
+          menuHotkey={state.menuHotkey}
           onOpenTab={setTab}
           launchAtLogin={state.launchAtLogin}
           canLaunchAtLogin={state.canLaunchAtLogin}
@@ -142,10 +144,24 @@ export default function Settings() {
             </button>
           </div>
           <p className="sub">
-            Each action is an instruction for the AI. Click a shortcut to record
-            a new combo (Backspace clears it). Unchecked actions are hidden from
-            the popup.
+            Each action is an instruction for the AI. Its hotkey runs it right
+            away; the menu hotkey opens the popup so you can pick one. Click a
+            shortcut to record a new combo (Backspace clears it). Unchecked
+            actions are hidden from the popup.
           </p>
+
+          <div className="action-row">
+            <span className="action-label">Open menu (pick an action)</span>
+            <HotkeyRecorder
+              value={state.menuHotkey}
+              onChange={async (accel) => {
+                const res = await window.polish.setMenuHotkey(accel);
+                if (res.ok)
+                  setState((s) => ({ ...s, menuHotkey: res.menuHotkey }));
+                return res;
+              }}
+            />
+          </div>
 
           {state.actions.map((a) =>
             editing === a.id ? (

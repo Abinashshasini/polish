@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toAccelerator, formatAccelerator } from '../hotkeys';
 
 export default function HotkeyRecorder({ value, onChange }) {
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState('');
+  const buttonRef = useRef(null);
 
   const start = () => {
     setError('');
     setRecording(true);
+    buttonRef.current.focus(); // on Mac a click doesn't focus a button, so keys would go elsewhere
     window.polish.pauseHotkeys();
   };
 
@@ -37,6 +39,7 @@ export default function HotkeyRecorder({ value, onChange }) {
   return (
     <div className="hk-field">
       <button
+        ref={buttonRef}
         className={`recorder ${recording ? 'recording' : ''}`}
         onClick={start}
         onKeyDown={onKeyDown}

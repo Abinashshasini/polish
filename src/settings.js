@@ -47,6 +47,7 @@ const DEFAULT_ACTIONS = [
 const store = new Store({
   defaults: {
     actions: DEFAULT_ACTIONS,
+    menuHotkey: 'Alt+Shift+Space', // opens the popup to pick an action
     provider: 'openai',
     apiKeysEnc: {}, // { [provider]: base64 of the keychain-encrypted key }
     models: {}, // { [provider]: model id }, empty = provider default

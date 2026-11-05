@@ -6,6 +6,7 @@ const mod = isMac ? '⌘' : 'Ctrl+';
 
 export default function GeneralSection({
   actions,
+  menuHotkey,
   launchAtLogin,
   canLaunchAtLogin,
   status,
@@ -30,8 +31,13 @@ export default function GeneralSection({
     },
     {
       title: 'Press a hotkey',
-      body: withHotkeys.length ? (
+      body: withHotkeys.length || menuHotkey ? (
         <div className="hotkey-list">
+          {menuHotkey && (
+            <span className="hotkey-chip">
+              <kbd>{formatAccelerator(menuHotkey)}</kbd> Pick from menu
+            </span>
+          )}
           {withHotkeys.map((a) => (
             <span key={a.id} className="hotkey-chip">
               <kbd>{formatAccelerator(a.hotkey)}</kbd> {a.label}
@@ -48,10 +54,11 @@ export default function GeneralSection({
       ),
     },
     {
-      title: 'Pick an action',
+      title: 'Check the fix',
       body: (
         <>
-          Use <kbd>↑</kbd> <kbd>↓</kbd> or <kbd>1</kbd>–<kbd>9</kbd>, then{' '}
+          An action's hotkey starts the fix right away. From the menu, use{' '}
+          <kbd>↑</kbd> <kbd>↓</kbd> or <kbd>1</kbd>–<kbd>9</kbd>, then{' '}
           <kbd>Enter</kbd>. On the result, <kbd>D</kbd> shows changes,{' '}
           <kbd>W</kbd> explains why, <kbd>R</kbd> retries.
         </>
