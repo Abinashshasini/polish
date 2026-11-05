@@ -33,8 +33,7 @@ Get the latest installer from the [Releases page](https://github.com/Abinashshas
 
 | Platform | File |
 | --- | --- |
-| Mac (Apple Silicon, M1 and newer) | `Polish-<version>-mac-arm64.dmg` |
-| Mac (Intel) | `Polish-<version>-mac-x64.dmg` |
+| Mac (Apple Silicon and Intel) | `Polish-<version>-mac-universal.dmg` |
 | Windows | `Polish-Setup-<version>.exe` |
 
 The builds aren't signed with a paid certificate yet, so your OS will warn you the first time:

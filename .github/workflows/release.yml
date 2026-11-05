@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            platform: --mac # dmg for Apple Silicon and Intel
+            platform: --mac # one universal dmg for Apple Silicon and Intel
           - os: windows-latest
             platform: --win # NSIS installer
     runs-on: ${{ matrix.os }}
@@ -74,8 +74,7 @@ jobs:
             --generate-notes \
             --notes "$(cat <<'EOF'
           ## Download
-          - **Mac (Apple Silicon, M1 and newer):** `Polish-*-mac-arm64.dmg`
-          - **Mac (Intel):** `Polish-*-mac-x64.dmg`
+          - **Mac (Apple Silicon and Intel):** `Polish-*-mac-universal.dmg`
           - **Windows:** `Polish-Setup-*.exe`
 
           These builds are not signed with a paid certificate yet:
