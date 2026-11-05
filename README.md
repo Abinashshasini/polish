@@ -16,10 +16,6 @@ I wanted that whole loop to be one keypress. So I built Polish.
 
 It turned out to be useful for more than saving clicks. The **"Why?"** view explains every change in plain English (*"went: past tense, because of yesterday"*), so instead of just accepting fixes, I've started noticing the mistakes I keep making.
 
-## Watch the 30-second intro
-
-https://github.com/user-attachments/assets/91789871-ea97-4f27-b3d0-6b033b1e24cc
-
 ## Who it's for
 
 - **Non-native English speakers** who write a lot at work and want to send messages with confidence.
