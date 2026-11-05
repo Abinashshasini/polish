@@ -37,6 +37,33 @@ The builds aren't signed with a paid certificate yet, so your OS will warn you t
 - **Mac:** drag Polish to Applications and open it once. Then go to **System Settings → Privacy & Security** and click **Open Anyway**.
 - **Windows:** if SmartScreen appears, click **More info → Run anyway**.
 
+### If Polish won't open on Mac
+
+**Why it happens:** Polish isn't signed with a paid Apple Developer ID yet. macOS marks every downloaded app as "quarantined", and for an unsigned app that means it shows a warning ("Apple could not verify Polish…", "Polish is damaged", or "not responding") or doesn't open at all.
+
+**Fix:** clear the quarantine flag and open it from Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Polish.app && open /Applications/Polish.app
+```
+
+You only need to do this once per download. If it still doesn't open, check these in order:
+
+1. **Is it in Applications?** Drag Polish from the disk image into **Applications** and open it from there. Run straight from the disk image, macOS moves it to a temporary folder and its permissions don't stick.
+2. **Is it already running?** Polish has no Dock icon. Look for ✦ in the menu bar (it can hide behind the notch on MacBooks). Opening Polish again from Applications brings up its Settings window.
+3. **Did you download the latest version?** Older releases had separate Apple Silicon and Intel files, and the wrong one shows "not supported on this Mac". Get the `mac-universal` file from the [latest release](https://github.com/Abinashshasini/polish/releases/latest); it works on every Mac.
+4. **Old copies still around?** Quit Polish, eject any mounted Polish disk images in Finder, delete the old `Polish.app` from Applications, then install the new one.
+
+### If fixes don't paste back
+
+Polish pastes the fix for you using macOS Accessibility, so it needs that permission. Each new install counts as a new app, so the permission has to be given again:
+
+1. Open **System Settings → Privacy & Security → Accessibility**.
+2. Remove any old **Polish** entry with the **−** button.
+3. Add or turn on the new **Polish**, then quit and reopen it.
+
+Until then, use **Copy** in the popup and paste the fix yourself.
+
 ## How it works
 
 1. Select text anywhere (Slack, email, a browser, an editor) and copy it.
